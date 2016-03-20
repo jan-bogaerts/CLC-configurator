@@ -1,0 +1,112 @@
+#:kivy 1.9.1
+
+<OutputItem>:
+    ToggleButton:
+        text: str(root.number) + ": " + root.assetLabel
+        size: root.size
+        pos: root.pos
+        state: 'down' if root.isActive else 'normal'
+        on_state: root.isActive = True if self.state == 'down' else False
+
+
+<OutputsScreen>:
+    relays: grdRelays
+    outputs: grdOutputs
+    GridLayout:
+        rows: 4
+        Label:
+            text: 'relays:'
+            size_hint_y: None
+            height: '32dp'
+        GridLayout:
+            id: grdRelays
+            cols: 8
+            rows: 2
+        Label:
+            text: 'outputs:'
+            size_hint_y: None
+            height: '32dp'
+        GridLayout:
+            id: grdOutputs
+            cols: 8
+            rows: 2
+
+
+<InputItem>:
+    canvas.after:
+        Line:
+            rounded_rectangle: self.x,self.y,self.width,self.height, 10.0
+    size_hint_y: None
+    height: mainLayout.minimum_height
+    GridLayout:
+        id: mainLayout
+        size: root.size
+        pos: root.pos
+        spacing: '8dp'
+        padding: '8dp'
+        rows: 3
+        BoxLayout:
+            size_hint_y: None
+            height:'32dp'
+            Label:
+                text: str(root.number)
+                size_hint: None, None
+                height:'32dp'
+                width:'32dp'
+            ToggleButton:
+                text: 't'
+                size_hint: None, None
+                height:'32dp'
+                width:'32dp'
+            Button:
+                text: 'mode: ' + root.mode
+                size_hint_y: None
+                height:'32dp'
+                on_press: root.showModes(self)
+        TextInput:
+            size_hint_y: None
+            height:'32dp'
+            write_tab: False
+            hint_text:'label'
+            text: root.label
+        Button:
+            text: 'output: ' + root.outputLabel
+            size_hint_y: None
+            height:'32dp'
+            on_press: root.showOutputs(self)
+
+
+
+<MainWindow>:
+    editbar: actview
+    BoxLayout:
+        size: root.size
+        pos: root.pos
+        orientation: 'vertical'
+        ActionBar:
+            size_hint: 1, None
+            ActionView:
+                id: actview
+                use_separator: True
+                ActionPrevious:
+                    title: 'Controllino - home control'
+                    with_previous: False
+                ActionOverflow:
+                    ActionButton:
+                        markup: True
+                        text: 'Credentials'
+                        on_press: root.showCredentials()
+                ActionButton:
+                    markup: True
+                    text: 'inputs'
+                    on_release: sm.current = 'inputs'
+                ActionButton:
+                    markup: True
+                    text: 'outputs'
+                    on_release: sm.current = 'outputs'
+        ScreenManager:
+            id: sm
+            InputsScreen:
+                name: 'inputs'
+            OutputsScreen:
+                name: 'outputs'
