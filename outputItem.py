@@ -8,6 +8,7 @@ __status__ = "Prototype"  # "Development", or "Production"
 from kivy.uix.widget import Widget
 from kivy.properties import BooleanProperty, StringProperty
 
+import iotUserClient.attiotuserclient as iot
 
 #list of available outputs
 outputs = []
@@ -20,7 +21,7 @@ relays = []
 
 class OutputItem(Widget):
     isActive = BooleanProperty(False)
-    value = StringProperty('normal')
+    value = BooleanProperty(False)
     assetLabel = StringProperty('')
 
     def __init__(self, number, name, **kwargs):
@@ -31,10 +32,12 @@ class OutputItem(Widget):
         super(OutputItem, self).__init__(**kwargs)
 
     def on_valueChanged(self, value):
-        self.value = 'down' if value == True else 'normal'
+        """callback for the iot pub-sub."""
+        self.value = value
+
+    def on_value(self, instance, value):
+        '''send command to platform'''
+        iot.send(self.assetId, value)
 
     def on_assetLabel(self, instance, value):
         self.assetLabelChanged = True
-
-    def on_isActive(self, instance, value):
-        Application.main.dataChanged()

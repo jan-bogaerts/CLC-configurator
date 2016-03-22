@@ -39,19 +39,36 @@ class OutputsScreen(Screen):
         outputItem.relays = []                                     # always reset before we fill the lists.
         outputItem.outputs = []
 
+    def clearOutputs(self):
+        if self.relays:
+            self.relays.clear_widgets()
+        if self.outputs:
+            self.outputs.clear_widgets()
 
     def on_relays(self, instance, value):
+        if self.outputs and self.relays and Application.root_window and Application.root_window.currentDevice:
+            Application.root_window.dataToWidgets()
+
+    def on_outputs(self, instance, value):
+        if self.outputs and self.relays and Application.root_window and Application.root_window.currentDevice:
+            Application.root_window.dataToWidgets()
+
+    def loadOutputs(self):
         '''load the widgets for the relay grid'''
         for i in range(1, 17):
             item = outputItem.OutputItem(i, controllino.relaysPins[i - 1])
+            item.bind(isActive=Application.root_window.dataChanged)
+            item.bind(assetLabel=Application.root_window.dataChanged)
             self.relays.add_widget(item)
             outputItem.relays.append(item)
-    def on_outputs(self, instance, value):
-        '''load the widgets for the output grid'''
+
         for i in range(1, 17):
             item = outputItem.OutputItem(i, controllino.outputPins[i - 1])
+            item.bind(isActive=Application.root_window.dataChanged)
+            item.bind(assetLabel=Application.root_window.dataChanged)
             self.outputs.add_widget(item)
             outputItem.outputs.append(item)
+
 
 
 class InputsScreen(Screen):
@@ -67,21 +84,42 @@ class InputsScreen(Screen):
         layout.size_hint_y = None
         layout.bind(minimum_height=layout.setter('height'))
         scroll.add_widget(layout)
+        self.layout = layout
+
+    def clearInputs(self):
+        if self.relays:
+            self.layout.clear_widgets()
+
+    def loadInputs(self):
         for i in range(1, 21):
             item = InputItem(i, controllino.inputPins[i - 1])
-            layout.add_widget(item)
+            item.bind(mode=Application.root_window.dataChanged)
+            item.bind(label=Application.root_window.dataChanged)
+            item.bind(outputLabel=Application.root_window.dataChanged)
+            self.layout.add_widget(item)
             inputWidgets.append(item)
 
 class MainWindow(Widget):
 
     editbar = ObjectProperty()
+    outputsPage = ObjectProperty()
+    inputsPage = ObjectProperty()
 
     def __init__(self, **kwargs):
         #self.data = None
         self.isChanged = False
+        self.currentDevice = None
         super(MainWindow, self).__init__(**kwargs)
         if len(data.devices) > 0:
             self.loadDevice(data.devices[0])
+
+    def on_outputsPage(self, instance, value):
+        if self.inputsPage and self.outputsPage and self.currentDevice:
+            self.dataToWidgets()
+
+    def on_inputsPage(self, instance, value):
+        if self.inputsPage and self.outputsPage and self.currentDevice:
+            self.dataToWidgets()
 
     def showCredentials(self):
         dlg = CredentialsDialog(data.credentials, self.credentialsChanged)
@@ -104,24 +142,36 @@ class MainWindow(Widget):
         for ground in grounds:
             devices = IOT.getDevices(ground['id'])
             for device in devices:
-                ver = IOT.getAssetByName(device['id'], '90')    # 90 = application
+                try:
+                    ver = IOT.getAssetByName(device['id'], '90')    # 90 = application
+                except:
+                    ver = None
                 if ver and ver == 'Controllino mega - light control':    # found a controllino
                     data.devices.append(device['id'])
 
     def loadDevice(self, device):
         """loads the configuration data of the controllino and displays it."""
+        self.currentDevice = device
         data.ioMap = IOT.getAssetByName(device, '99')
         data.pinTypes = IOT.getAssetByName(device, '98')
         data.usedRelays = IOT.getAssetByName(device, usedRelaysId)
         data.usedOutputs = IOT.getAssetByName(device, usedOutputsId)
-        self.dataToWidgets(device)
+        self.dataToWidgets()
 
-    def dataToWidgets(self, device):
-        self.outputsToWidgets(device, outputItem.outputs, data.usedOutputs)
-        self.outputsToWidgets(device, outputItem.relays, data.usedRelays)
+    def dataToWidgets(self):
+        if self.inputsPage and self.outputsPage:
+            self.inputsPage.clearInputs()
+            self.outputsPage.clearInputs()
+            self.inputsPage.loadInputs()
+            self.outputsPage.loadInputs()
+            self.outputsToWidgets(outputItem.outputs, data.usedOutputs)
+            self.outputsToWidgets(outputItem.relays, data.usedRelays)
+            self.inputsToWidgets()
+
+    def inputsToWidgets(self):
         for index in range(0, len(inputWidgets)):
-            input = input[index]
-            sensor = IOT.getAssetByName(device, input.assetName)
+            input = inputWidgets[index]
+            sensor = IOT.getAssetByName(self.currentDevice, input.assetName)
             input.assetId = sensor['id']
             input.label = sensor['label']
             input.labelChanged = False
@@ -146,13 +196,13 @@ class MainWindow(Widget):
                 input.OutputSelected(None)
 
 
-    def outputsToWidgets(self, device, widgets, outputPins):
+    def outputsToWidgets(self, widgets, outputPins):
         bitIndex = 1
         for index in range(0, len(widgets)):
             output = widgets[index]
             if outputPins & bitIndex > 0:
                 output.isActive = True
-                asset = IOT.getAssetByName(device, str(output.assetName))
+                asset = IOT.getAssetByName(self.currentDevice, str(output.assetName))
                 output.assetId = asset['id']
                 output.assetLabel = asset['label']
                 output.assetLabelChanged = False
@@ -190,13 +240,14 @@ class MainWindow(Widget):
         IOT.send(configAssetId, result)
         return result
 
-    def dataChanged(self):
+    def dataChanged(self, instance, value):
         """"called when some part of the data is changed. So we can show the edit buttons"""
         if not self.isChanged:
             btn = ActionButton(text = 'V', on_press=self.widgetsToData)
             self.editbar.add_widget(btn)
             btn = ActionButton(text = 'X', on_press=self.undoEdit)
             self.editbar.add_widget(btn)
+            self.isChanged = True
 
     def undoEdit(self):
         self.dataToWidgets(data.devices[0])

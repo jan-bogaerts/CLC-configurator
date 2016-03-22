@@ -322,6 +322,10 @@ def getAsset(id):
     url = "/asset/" + id
     return doHTTPRequest(url, "")
 
+def getAssetByName(deviceId, name):
+    url = "/device/" + deviceId + "/asset/" + name
+    return doHTTPRequest(url, "")
+
 def getAssetState(id):
     """get the details for the specified asset"""
     url = "/asset/" + id + '/state'

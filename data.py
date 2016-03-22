@@ -30,10 +30,12 @@ def loadSettings():
             credentials.server = config.get('general', 'server')
         if config.has_option('general', 'broker'):
             credentials.broker = config.get('general', 'broker')
-        if configs.has_option('general', 'devices'):
-            devices = configs.get('general', 'devices')
+        if config.has_option('general', 'devices'):
+            devices = config.get('general', 'devices')
 
 def saveSettings():
+    if not config.has_section('general'):
+        config.add_section('general')
     config.set('general', 'username', credentials.userName)
     config.set('general', 'password', credentials.password)
     config.set('general', 'server', credentials.server)

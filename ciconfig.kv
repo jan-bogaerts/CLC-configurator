@@ -1,12 +1,48 @@
 #:kivy 1.9.1
 
 <OutputItem>:
-    ToggleButton:
-        text: str(root.number) + ": " + root.assetLabel
+    canvas.after:
+        Line:
+            rounded_rectangle: self.x,self.y,self.width,self.height, 10.0
+    size_hint_y: None
+    height: mainLayout.minimum_height
+    GridLayout:
+        id: mainLayout
         size: root.size
         pos: root.pos
-        state: 'down' if root.isActive else 'normal'
-        on_state: root.isActive = True if self.state == 'down' else False
+        spacing: '8dp'
+        padding: '8dp'
+        rows: 3
+        BoxLayout:
+            size_hint_y: None
+            height:'32dp'
+            Label:
+                text: str(root.number)
+                size_hint: None, None
+                height:'32dp'
+                width:'32dp'
+            ToggleButton:
+                text: "inactive"
+                size_hint_y: None
+                height:'32dp'
+                state: 'down' if root.isActive else 'normal'
+                on_state: root.isActive = True if self.state == 'down' else False
+            ToggleButton:
+                text: 'value'
+                size_hint: None, None
+                height:'32dp'
+                width:'32dp'
+        TextInput:
+            size_hint_y: None
+            height:'32dp'
+            write_tab: False
+            hint_text:'label'
+            text: root.label
+        ToggleButton:
+            text: 'Off'
+            size_hint_y: None
+            state: 'down' if root.value else 'normal'
+            on_state: root.value = True if self.state == 'down' else False
 
 
 <OutputsScreen>:
@@ -79,6 +115,8 @@
 
 <MainWindow>:
     editbar: actview
+    inputsPage: ctrlInputs
+    outputsPage: ctrlOutputs
     BoxLayout:
         size: root.size
         pos: root.pos
@@ -107,6 +145,8 @@
         ScreenManager:
             id: sm
             InputsScreen:
+                id: ctrlInputs
                 name: 'inputs'
             OutputsScreen:
+                id: ctrlOutputs
                 name: 'outputs'

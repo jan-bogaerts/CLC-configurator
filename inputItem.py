@@ -35,6 +35,11 @@ class InputItem(Widget):
         try:
             dropdown = DropDown(auto_width=True)
 
+            btn = Button(text="None", markup=True,  size_hint_y=None, height='44dp')
+            btn.dataItem = None
+            btn.bind(on_press=lambda btn: dropdown.select(btn.dataItem))
+            dropdown.add_widget(btn)
+
             for item in out.outputs:
                 if item.isActive == True:
                     btn = Button(text=str(item.number) + " (" + item.assetLabel + ")", markup=True,  size_hint_y=None, height='44dp')
