@@ -17,7 +17,7 @@ inputWidgets = []
 
 class InputItem(Widget):
     """the data for configuring a single input pin"""
-    mode = StringProperty("disabled")
+    mode = StringProperty("Disabled")
     label = StringProperty("")
     outputLabel = StringProperty("None")
     value = StringProperty('normal')            # the current value of the sensor, pressed or not, or the value
@@ -32,32 +32,31 @@ class InputItem(Widget):
 
     def showOutputs(self, relativeTo):
         """show a list of possible outputs"""
-        try:
-            dropdown = DropDown(auto_width=True)
+        if self.mode != 'Disabled':
+            try:
+                dropdown = DropDown(auto_width=True)
 
-            btn = Button(text="None", markup=True,  size_hint_y=None, height='44dp')
-            btn.dataItem = None
-            btn.bind(on_press=lambda btn: dropdown.select(btn.dataItem))
-            dropdown.add_widget(btn)
+                btn = Button(text="None", markup=True,  size_hint_y=None, height='44dp')
+                btn.dataItem = None
+                btn.bind(on_press=lambda btn: dropdown.select(btn.dataItem))
+                dropdown.add_widget(btn)
 
-            for item in out.outputs:
-                if item.isActive == True:
-                    btn = Button(text=str(item.number) + " (" + item.assetLabel + ")", markup=True,  size_hint_y=None, height='44dp')
-                    btn.dataItem = item
-                    btn.bind(on_press=lambda btn: dropdown.select(btn.dataItem))
-                    dropdown.add_widget(btn)
-            for item in out.relays:
-                if item.isActive == True:
-                    btn = Button(text=str(item.number) + " (" + item.assetLabel + ")", markup=True,  size_hint_y=None, height='44dp')
-                    btn.dataItem = item
-                    btn.bind(on_press=lambda btn: dropdown.select(btn.dataItem))
-                    dropdown.add_widget(btn)
-            dropdown.bind(on_select=self.OutputSelected)
-
-
-            dropdown.open(relativeTo)
-        except Exception as e:
-            showError(e)
+                for item in out.outputs:
+                    if item.isActive == True:
+                        btn = Button(text=str(item.number) + " (" + item.assetLabel + ")", markup=True,  size_hint_y=None, height='44dp')
+                        btn.dataItem = item
+                        btn.bind(on_press=lambda btn: dropdown.select(btn.dataItem))
+                        dropdown.add_widget(btn)
+                for item in out.relays:
+                    if item.isActive == True:
+                        btn = Button(text=str(item.number) + " (" + item.assetLabel + ")", markup=True,  size_hint_y=None, height='44dp')
+                        btn.dataItem = item
+                        btn.bind(on_press=lambda btn: dropdown.select(btn.dataItem))
+                        dropdown.add_widget(btn)
+                dropdown.bind(on_select=self.OutputSelected)
+                dropdown.open(relativeTo)
+            except Exception as e:
+                showError(e)
 
     def OutputSelected(self,instance, value):
         self.output = value
@@ -96,6 +95,11 @@ class InputItem(Widget):
         self.mode = value
 
     def on_valueChanged(self, value):
+        if 'value' in value:
+            value = value['value']
+        elif 'Value' in value:
+            value = value['Value']
+
         if self.mode == "Analog":
             self.value = str(value)
         else:

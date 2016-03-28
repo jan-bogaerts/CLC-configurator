@@ -323,13 +323,31 @@ def getAsset(id):
     return doHTTPRequest(url, "")
 
 def getAssetByName(deviceId, name):
-    url = "/device/" + deviceId + "/asset/" + name
+    url = "/device/" + str(deviceId) + "/asset/" + str(name)
     return doHTTPRequest(url, "")
 
 def getAssetState(id):
     """get the details for the specified asset"""
-    url = "/asset/" + id + '/state'
+    url = "/asset/" + str(id) + '/state'
     return doHTTPRequest(url, "")
+
+def deleteAsset(id):
+    """delete the asset
+    :param id: the id of the asset
+    """
+    url = "/asset/" + id
+    doHTTPRequest(url, "", 'DELETE', 204)
+
+def deleteAssetbyName(deviceId, assetName):
+    """delete the asset
+    :param id: the id of the asset
+    """
+    url = "/device/" + deviceId + "/asset/" + str(assetName)
+    doHTTPRequest(url, "", 'DELETE', 204)
+
+def updateAsset(deviceId, assetName, value):
+    url = "/device/" + deviceId + '/asset/' + str(assetName)
+    doHTTPRequest(url, json.dumps(value), 'PUT')
 
 def getGateway(id):
     """get the details for the specified gateway"""
@@ -375,7 +393,7 @@ def _reconnectAfterSendData():
     except:
         logging.exception("reconnect failed after _sendData produced an error")
 
-def doHTTPRequest(url, content, method = "GET"):
+def doHTTPRequest(url, content, method = "GET", expectedResult = 200):
     """send the data and check the result
         Some multi threading applications can have issues with the server closing the connection, if this happens
         we try again
@@ -396,10 +414,9 @@ def doHTTPRequest(url, content, method = "GET"):
                 logging.info(str((response.status, response.reason)))
                 jsonStr =  response.read()
                 logging.info(jsonStr)
-                if response.status == 200:
-                    if jsonStr: return json.loads(jsonStr)
-                    else: return                                                    # get out of the ethernal loop
-                elif not response.status == 200:
+                if response.status == expectedResult:
+                    return json.loads(jsonStr) if jsonStr else None                 # get out of the ethernal loop
+                else:
                     _processError(jsonStr)
             except httplib.BadStatusLine:                   # a bad status line is probably due to the connection being closed. If it persists, raise the exception.
                 badStatusLineCount =+ 1
@@ -418,10 +435,19 @@ def doHTTPRequest(url, content, method = "GET"):
         raise Exception("Not logged in: please check your credentials")
 
 def send(id, value):
-    typeOfVal = type(value)
     body = {"value": value }
     body = json.dumps(body)
 
     url = "/asset/" +  id + "/command"
-
     result = doHTTPRequest(url, body, "PUT")
+    return result
+
+def sendByName(deviceId, assetName, value):
+    if isinstance(value, (list, dict)):
+        body = json.dumps(value)
+    else:
+        body = str(value)
+
+    topic = "client/" + _clientId + "/in/device/" + deviceId + "/asset/" + str(assetName) + "/command"  # also need a topic to publish to
+    logging.info("Publishing message - topic: " + topic + ", payload: " + body)
+    _mqttClient.publish(topic, body, 0, False)

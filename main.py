@@ -5,6 +5,11 @@ __maintainer__ = "Jan Bogaerts"
 __email__ = "jb@allthingstalk.com"
 __status__ = "Prototype"  # "Development", or "Production"
 
+import sys, os
+if sys.executable.endswith("pythonw.exe"):
+  sys.stdout = open(os.devnull, "w");
+  sys.stderr = open(os.path.join(os.getenv("TEMP"), "stderr-"+os.path.basename(sys.argv[0])), "w")
+
 import kivy
 kivy.require('1.9.1')   # replace with your current kivy version !
 
@@ -29,6 +34,8 @@ import controllino
 
 usedOutputsId = '94'
 usedRelaysId = '97'
+pinTypesId = '98'
+ioMapId = '99'
 
 class OutputsScreen(Screen):
     relays = ObjectProperty()
@@ -42,30 +49,32 @@ class OutputsScreen(Screen):
     def clearOutputs(self):
         if self.relays:
             self.relays.clear_widgets()
+            outputItem.relays = []
         if self.outputs:
             self.outputs.clear_widgets()
+            outputItem.outputs = []
 
     def on_relays(self, instance, value):
-        if self.outputs and self.relays and Application.root_window and Application.root_window.currentDevice:
-            Application.root_window.dataToWidgets()
+        if self.outputs and self.relays and _Main and _Main.currentDevice:
+            _Main.dataToWidgets()
 
     def on_outputs(self, instance, value):
-        if self.outputs and self.relays and Application.root_window and Application.root_window.currentDevice:
-            Application.root_window.dataToWidgets()
+        if self.outputs and self.relays and _Main and _Main.currentDevice:
+            _Main.dataToWidgets()
 
     def loadOutputs(self):
         '''load the widgets for the relay grid'''
         for i in range(1, 17):
             item = outputItem.OutputItem(i, controllino.relaysPins[i - 1])
-            item.bind(isActive=Application.root_window.dataChanged)
-            item.bind(assetLabel=Application.root_window.dataChanged)
+            item.bind(isActive=_Main.dataChanged)
+            item.bind(assetLabel=_Main.dataChanged)
             self.relays.add_widget(item)
             outputItem.relays.append(item)
 
         for i in range(1, 17):
             item = outputItem.OutputItem(i, controllino.outputPins[i - 1])
-            item.bind(isActive=Application.root_window.dataChanged)
-            item.bind(assetLabel=Application.root_window.dataChanged)
+            item.bind(isActive=_Main.dataChanged)
+            item.bind(assetLabel=_Main.dataChanged)
             self.outputs.add_widget(item)
             outputItem.outputs.append(item)
 
@@ -87,15 +96,17 @@ class InputsScreen(Screen):
         self.layout = layout
 
     def clearInputs(self):
-        if self.relays:
+        global inputWidgets
+        if self.layout:
             self.layout.clear_widgets()
+        inputWidgets = []
 
     def loadInputs(self):
-        for i in range(1, 21):
+        for i in range(1, 22):
             item = InputItem(i, controllino.inputPins[i - 1])
-            item.bind(mode=Application.root_window.dataChanged)
-            item.bind(label=Application.root_window.dataChanged)
-            item.bind(outputLabel=Application.root_window.dataChanged)
+            item.bind(mode=_Main.dataChanged)
+            item.bind(label=_Main.dataChanged)
+            item.bind(outputLabel=_Main.dataChanged)
             self.layout.add_widget(item)
             inputWidgets.append(item)
 
@@ -107,8 +118,12 @@ class MainWindow(Widget):
 
     def __init__(self, **kwargs):
         #self.data = None
+        global _Main
+        _Main = self
         self.isChanged = False
+        self.isLoading = False                  # so we don't show the save/undo buttons after loading the config.
         self.currentDevice = None
+        self.editButtons = []                    # the X and V buttons
         super(MainWindow, self).__init__(**kwargs)
         if len(data.devices) > 0:
             self.loadDevice(data.devices[0])
@@ -144,26 +159,44 @@ class MainWindow(Widget):
             for device in devices:
                 try:
                     ver = IOT.getAssetByName(device['id'], '90')    # 90 = application
+                    if ver and 'state' in ver:
+                        ver = ver['state']['value']
                 except:
                     ver = None
-                if ver and ver == 'Controllino mega - light control':    # found a controllino
+                if ver and str(ver) == 'Controllino mega - light control':    # found a controllino
                     data.devices.append(device['id'])
 
     def loadDevice(self, device):
         """loads the configuration data of the controllino and displays it."""
-        self.currentDevice = device
-        data.ioMap = IOT.getAssetByName(device, '99')
-        data.pinTypes = IOT.getAssetByName(device, '98')
-        data.usedRelays = IOT.getAssetByName(device, usedRelaysId)
-        data.usedOutputs = IOT.getAssetByName(device, usedOutputsId)
-        self.dataToWidgets()
+        self.isLoading = True
+        try:
+            self.currentDevice = device
+            data.ioMap = self.getAssetValue(device, ioMapId)
+            data.pinTypes = self.getAssetValue(device, pinTypesId)
+            data.usedRelays = self.getAssetValue(device, usedRelaysId)
+            if not data.usedRelays:
+                data.usedRelays = 0
+            data.usedOutputs = self.getAssetValue(device, usedOutputsId)
+            if not data.usedOutputs:
+                data.usedOutputs = 0
+            self.dataToWidgets()
+        finally:
+            self.isLoading = False
+
+    def getAssetValue(self, device, asset):
+        result = IOT.getAssetByName(device, asset)
+        if result:
+            result = result['state']
+            if result:
+                result = result['value']
+        return result
 
     def dataToWidgets(self):
         if self.inputsPage and self.outputsPage:
             self.inputsPage.clearInputs()
-            self.outputsPage.clearInputs()
+            self.outputsPage.clearOutputs()
             self.inputsPage.loadInputs()
-            self.outputsPage.loadInputs()
+            self.outputsPage.loadOutputs()
             self.outputsToWidgets(outputItem.outputs, data.usedOutputs)
             self.outputsToWidgets(outputItem.relays, data.usedRelays)
             self.inputsToWidgets()
@@ -173,27 +206,28 @@ class MainWindow(Widget):
             input = inputWidgets[index]
             sensor = IOT.getAssetByName(self.currentDevice, input.assetName)
             input.assetId = sensor['id']
-            input.label = sensor['label']
+            input.label = sensor['title']
             input.labelChanged = False
+            if sensor['state']:
+                input.on_valueChanged(sensor['state'])
             IOT.subscribe(input.assetId, input.on_valueChanged)
-            if data.pinTypes[index] == 'T':
-                input.mode = "Toggle"
-            elif data.pinTypes[index] == 'B':
-                input.mode = "Button"
-            elif data.pinTypes[index] == 'A':
-                input.mode = "Analog"
-            else:
-                input.mode = "Disabled"
-
-            if data.ioMap[index] != 0xFF:
-                outIndex = controllino.relaysPins.index(data.ioMap[index])
-                if outIndex == -1:
+            input.mode = "Disabled"
+            if data.pinTypes:
+                if data.pinTypes[index] == 'T':
+                    input.mode = "Toggle"
+                elif data.pinTypes[index] == 'B':
+                    input.mode = "Button"
+                elif data.pinTypes[index] == 'A':
+                    input.mode = "Analog"
+            if data.ioMap and data.ioMap[index] != 0xFF:
+                try:
+                    outIndex = controllino.relaysPins.index(data.ioMap[index])
+                    input.OutputSelected(None, outputItem.relays[outIndex])
+                except:
                     outIndex = controllino.outputPins.index(data.ioMap[index])
                     input.OutputSelected(None, outputItem.outputs[outIndex])
-                else:
-                    input.OutputSelected(None, outputItem.relays[outIndex])
             else:
-                input.OutputSelected(None)
+                input.OutputSelected(self, None)
 
 
     def outputsToWidgets(self, widgets, outputPins):
@@ -202,9 +236,16 @@ class MainWindow(Widget):
             output = widgets[index]
             if outputPins & bitIndex > 0:
                 output.isActive = True
-                asset = IOT.getAssetByName(self.currentDevice, str(output.assetName))
-                output.assetId = asset['id']
-                output.assetLabel = asset['label']
+                try:
+                    asset = IOT.getAssetByName(self.currentDevice, str(output.assetName))
+                except:
+                    asset = None
+                if asset:
+                    if asset['state']:                              # do before storing the id, so that we don't send a command upon storing the current state.
+                        output.value = asset['state']['value']
+                        output.cloudValue = output.value
+                    output.assetId = asset['id']
+                    output.assetLabel = asset['title']
                 output.assetLabelChanged = False
                 IOT.subscribe(output.assetId, output.on_valueChanged)
             else:
@@ -212,45 +253,106 @@ class MainWindow(Widget):
                 if output.assetId:
                     IOT.unsubscribe(output.assetId)
                     output.assetId = None
-            bitIndex = bitIndex < 1
+            bitIndex = bitIndex << 1
 
-    def widgetsToData(self):
+    def sendSettingsToDevice(self, instance):
+        popup = Popup(title='Test popup', content=Label(text='sending settings to device,\n please wait...'),
+                      size_hint=(None, None), size=(400, 250), auto_dismiss=False)
+
+        popup.bind(on_open=self.widgetsToData)
+        popup.open()
+
+    def widgetsToData(self, instance):
         """store the data in the widgets in the cloud (and in the data module"""
-        data.usedOutputs = self.widgetsToOutputs(outputItem.outputs, usedOutputsId)
-        data.usedRelays = self.widgetsToOutputs(outputItem.relays, usedRelaysId)
-        for index in range(0, len(inputWidgets)):
-            input = input[index]
-            data.pinTypes[index] = input.mode[0]
-            if input.output:
-                data.ioMap[index] = input.output.assetName
-            else:
-                data.ioMap[index] = 0xFF
-            if input.labelChanged:
-                IOT.updateAsset({'id': input.assetId, 'label': input.label})
+        try:
+            data.usedOutputs = self.widgetsToOutputs(outputItem.outputs, usedOutputsId, data.usedOutputs)
+            data.usedRelays = self.widgetsToOutputs(outputItem.relays, usedRelaysId, data.usedRelays)
+            newPinTypes = list(data.pinTypes)
+            ioMapChanged = False
+            for index in range(0, len(inputWidgets)):
+                try:
+                    input = inputWidgets[index]
+                    newPinTypes[index] = input.mode[0]
+                    ioMapChanged |= self.setIoMap(input, index)
+                    if input.labelChanged:
+                        IOT.updateAsset(_Main.currentDevice, input.assetName, {'title': input.label, 'is': 'sensor', 'id': input.assetId})
+                        input.labelChanged = False
+                    if input.mode[0] == 'D' and data.pinTypes[index] != 'D':            # the input got disabled, so remove the asset (not done by the device, it only creates asssets)
+                        IOT.deleteAssetbyName(self.currentDevice, input.assetName)
+                except Exception as e:
+                    showError(e)
+            newPinTypes = "".join(newPinTypes)
+            if newPinTypes != data.pinTypes:
+                IOT.sendByName(self.currentDevice, pinTypesId, newPinTypes)
+                data.pinTypes = newPinTypes
+            if ioMapChanged:
+                IOT.sendByName(self.currentDevice, ioMapId, data.ioMap)
+        except Exception as e:
+            showError(e)
+        finally:
+            instance.dismiss()
+            self.removeEditButtons()
+            self.isChanged = False
 
-    def widgetsToOutputs(self, list, configAssetId):
+    def setIoMap(self, input, index):
+        if input.output:
+            result = not data.ioMap[index] == input.output.assetName
+            data.ioMap[index] = input.output.assetName
+        else:
+            result = not data.ioMap[index] == 0xFF
+            data.ioMap[index] = 0xFF
+        return result
+
+    def widgetsToOutputs(self, list, configAssetId, curVal):
         result = 0
         bitIndex = 1
         for item in list:
-            if item.isActive:
-                result += bitIndex
-            if item.assetLabelChanged:
-                IOT.updateAsset({'id': item.assetId, 'label': item.assetLabel})
-            bitIndex = bitIndex < 1
-        IOT.send(configAssetId, result)
+            try:
+                if item.isActive:
+                    result += bitIndex
+                    if item.assetLabelChanged:
+                        IOT.updateAsset(_Main.currentDevice, item.assetName, {'title': item.assetLabel, 'is': 'actuator', 'id': item.assetId})
+                        item.assetLabelChanged = False
+                elif curVal & bitIndex > 0:
+                    IOT.deleteAssetbyName(self.currentDevice, item.assetName)
+            except Exception as e:
+                showError(e)
+            bitIndex = bitIndex << 1
+        if result != curVal:                            #only send if there was a change.
+            IOT.sendByName(self.currentDevice, configAssetId, result)
         return result
 
     def dataChanged(self, instance, value):
         """"called when some part of the data is changed. So we can show the edit buttons"""
-        if not self.isChanged:
-            btn = ActionButton(text = 'V', on_press=self.widgetsToData)
-            self.editbar.add_widget(btn)
+        if not self.isChanged and not self.isLoading:
+            btn = ActionButton(text = 'V', on_press=self.sendSettingsToDevice)
+            self.editbar.add_widget(btn, 1)
+            self.editButtons.append(btn)
             btn = ActionButton(text = 'X', on_press=self.undoEdit)
-            self.editbar.add_widget(btn)
+            self.editbar.add_widget(btn, 1)
+            self.editButtons.append(btn)
             self.isChanged = True
 
-    def undoEdit(self):
-        self.dataToWidgets(data.devices[0])
+    def undoEdit(self, instance):
+
+        popup = Popup(title='Test popup', content=Label(text='retrieving settings from device,\nplease wait...'), size_hint=(None, None), size=(400, 250), auto_dismiss=False)
+        popup.bind(on_open=self.on_undo_opened)
+        popup.open()
+
+    def on_undo_opened(self, instance):
+        self.isLoading = True
+        try:
+            self.dataToWidgets()
+            self.removeEditButtons()
+        finally:
+            instance.dismiss()
+            self.isLoading = False
+            self.isChanged = False
+
+    def removeEditButtons(self):
+        if len(self.editButtons) > 0:
+            map(self.editbar.remove_widget, self.editButtons)
+            self.editButtons = []
 
 class CIConfigApp(App):
     def build(self):
@@ -292,6 +394,7 @@ class CIConfigApp(App):
 
 
 Application = CIConfigApp()
+_Main = None                       # so that the inputs can access the main window and bind to it upon creation.
 
 if __name__ == '__main__':
     Application.run()

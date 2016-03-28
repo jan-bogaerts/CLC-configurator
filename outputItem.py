@@ -22,22 +22,28 @@ relays = []
 class OutputItem(Widget):
     isActive = BooleanProperty(False)
     value = BooleanProperty(False)
+    cloudValue = BooleanProperty(False)
     assetLabel = StringProperty('')
+    assetId = StringProperty('')
 
     def __init__(self, number, name, **kwargs):
         self.number = number
         self.assetName = name
-        self.assetId = None
         self.assetLabelChanged = False
         super(OutputItem, self).__init__(**kwargs)
 
     def on_valueChanged(self, value):
         """callback for the iot pub-sub."""
-        self.value = value
+        if 'value' in value:
+            self.cloudValue = value['value']
+        elif 'Value' in value:
+            self.cloudValue = value['Value']
+        self.value = self.cloudValue
 
     def on_value(self, instance, value):
         '''send command to platform'''
-        iot.send(self.assetId, value)
+        if self.assetId:                            # when just activated, but not yet commited, there is no id yet to send to.
+            iot.send(self.assetId, value)
 
     def on_assetLabel(self, instance, value):
         self.assetLabelChanged = True

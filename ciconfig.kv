@@ -22,25 +22,33 @@
                 height:'32dp'
                 width:'32dp'
             ToggleButton:
-                text: "inactive"
+                text: "active" if root.isActive else "inactive"
                 size_hint_y: None
                 height:'32dp'
                 state: 'down' if root.isActive else 'normal'
                 on_state: root.isActive = True if self.state == 'down' else False
             ToggleButton:
-                text: 'value'
+                pos_hint: {'x': 0.5, 'y': 0.2}
                 size_hint: None, None
-                height:'32dp'
-                width:'32dp'
+                height:'24dp'
+                width:'24dp'
+                background_normal: 'images/greenled_off.png'
+                background_down: 'images/greenled_on2.png'
+                border: 0, 0, 0, 0
+                state: 'down' if root.cloudValue else 'normal'
         TextInput:
             size_hint_y: None
             height:'32dp'
             write_tab: False
             hint_text:'label'
-            text: root.label
+            text: root.assetLabel
+            on_text: root.assetLabel = args[1]
+            disabled: not root.isActive
         ToggleButton:
-            text: 'Off'
+            text: 'On' if root.value else 'Off'
+            disabled: not root.assetId or not root.isActive
             size_hint_y: None
+            height:'40dp'
             state: 'down' if root.value else 'normal'
             on_state: root.value = True if self.state == 'down' else False
 
@@ -48,24 +56,36 @@
 <OutputsScreen>:
     relays: grdRelays
     outputs: grdOutputs
-    GridLayout:
-        rows: 4
-        Label:
-            text: 'relays:'
-            size_hint_y: None
-            height: '32dp'
+    ScrollView:
+        size_hint: 1, 1
         GridLayout:
-            id: grdRelays
-            cols: 8
-            rows: 2
-        Label:
-            text: 'outputs:'
+            rows: 4
             size_hint_y: None
-            height: '32dp'
-        GridLayout:
-            id: grdOutputs
-            cols: 8
-            rows: 2
+            height: self.minimum_height
+            Label:
+                text: 'relays:'
+                size_hint_y: None
+                height: '32dp'
+            GridLayout:
+                id: grdRelays
+                size_hint_y: None
+                height: self.minimum_height
+                padding: '8dp'
+                spacing: '8dp'
+                cols: 4
+                rows: 4
+            Label:
+                text: 'outputs:'
+                size_hint_y: None
+                height: '32dp'
+            GridLayout:
+                id: grdOutputs
+                size_hint_y: None
+                height: self.minimum_height
+                padding: '8dp'
+                spacing: '8dp'
+                cols: 4
+                rows: 4
 
 
 <InputItem>:
@@ -89,24 +109,32 @@
                 size_hint: None, None
                 height:'32dp'
                 width:'32dp'
-            ToggleButton:
-                text: 't'
-                size_hint: None, None
-                height:'32dp'
-                width:'32dp'
             Button:
                 text: 'mode: ' + root.mode
                 size_hint_y: None
                 height:'32dp'
                 on_press: root.showModes(self)
+            ToggleButton:
+                pos_hint: {'x': 0.5, 'y': 0.2}
+                size_hint: None, None
+                height:'24dp'
+                width:'24dp'
+                value: root.value
+                background_normal: 'images/greenled_off.png'
+                background_down: 'images/greenled_on2.png'
+                border: 0, 0, 0, 0
+                state: root.value
         TextInput:
             size_hint_y: None
             height:'32dp'
             write_tab: False
             hint_text:'label'
             text: root.label
+            on_text: root.label = args[1]
+            disabled: True if root.mode == 'Disabled' else False
         Button:
             text: 'output: ' + root.outputLabel
+            disabled: True if root.mode == 'Disabled' else False
             size_hint_y: None
             height:'32dp'
             on_press: root.showOutputs(self)

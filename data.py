@@ -12,9 +12,9 @@ devices = []
 credentials = None
 config = ConfigParser()
 ioMap = None
-pinTypes = None
-usedRelays = None
-usedOutputs = None
+pinTypes = ''
+usedRelays = 0
+usedOutputs = 0
 appConfigFileName = 'app.config'
 
 
@@ -31,7 +31,8 @@ def loadSettings():
         if config.has_option('general', 'broker'):
             credentials.broker = config.get('general', 'broker')
         if config.has_option('general', 'devices'):
-            devices = config.get('general', 'devices')
+            devicesStr = config.get('general', 'devices')
+            devices = [x.strip() for x in devicesStr.split(';')] if devicesStr else []
 
 def saveSettings():
     if not config.has_section('general'):
@@ -40,6 +41,6 @@ def saveSettings():
     config.set('general', 'password', credentials.password)
     config.set('general', 'server', credentials.server)
     config.set('general', 'broker', credentials.broker)
-    config.set('general', 'devices', devices)
+    config.set('general', 'devices', ';'.join(devices))
     with open(appConfigFileName, 'w') as f:
         config.write(f)
