@@ -105,6 +105,7 @@ class CredentialsDialog(Popup):
             self.brokerInput.text = 'broker.smartliving.io'
 
     def dismissOk(self):
+        self.dismiss()
         if self.callback:
             credentials = Credentials()
             credentials.userName = self.userNameInput.text
@@ -112,4 +113,3 @@ class CredentialsDialog(Popup):
             credentials.server = self.serverInput.text
             credentials.broker = self.brokerInput.text
             self.callback(credentials)
-        self.dismiss()

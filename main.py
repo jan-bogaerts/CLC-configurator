@@ -23,6 +23,7 @@ from kivy.uix.screenmanager import Screen
 from kivy.uix.scrollview import ScrollView
 from kivy.properties import ObjectProperty
 from kivy.uix.actionbar import ActionButton
+from kivy.core.window import Window
 
 from errors import *
 from inputItem import InputItem, inputWidgets
@@ -124,6 +125,7 @@ class MainWindow(Widget):
         self.isLoading = False                  # so we don't show the save/undo buttons after loading the config.
         self.currentDevice = None
         self.editButtons = []                    # the X and V buttons
+        Window.softinput_mode = 'below_target'  # so the screen resizes when the keybaord is shown, otherwise it hides editing.
         super(MainWindow, self).__init__(**kwargs)
         if len(data.devices) > 0:
             self.loadDevice(data.devices[0])
@@ -144,11 +146,21 @@ class MainWindow(Widget):
         """called when the user closed the credentials dialog"""
         IOT.disconnect(False)
         data.credentials = value
-        Application.connect()
-        self.scanDevices()
-        data.saveSettings()
-        if len(data.devices) > 0:
-            self.loadDevice(data.devices[0])
+
+        popup = Popup(title='connecting', content=Label(text='searching for devices,\nand syncing...'),
+                      size_hint=(None, None), size=(400, 250), auto_dismiss=False)
+        popup.bind(on_open=self._syncWithCloud)
+        popup.open()
+
+    def _syncWithCloud(self, instance):
+        try:
+            Application.connect()
+            self.scanDevices()
+            data.saveSettings()
+            if len(data.devices) > 0:
+                self.loadDevice(data.devices[0])
+        finally:
+            instance.dismiss()
 
     def scanDevices(self):
         """scan for controllino devices and add them to the list."""
@@ -256,7 +268,7 @@ class MainWindow(Widget):
             bitIndex = bitIndex << 1
 
     def sendSettingsToDevice(self, instance):
-        popup = Popup(title='Test popup', content=Label(text='sending settings to device,\n please wait...'),
+        popup = Popup(title='updating', content=Label(text='sending settings to device,\n please wait...'),
                       size_hint=(None, None), size=(400, 250), auto_dismiss=False)
 
         popup.bind(on_open=self.widgetsToData)
@@ -397,4 +409,7 @@ Application = CIConfigApp()
 _Main = None                       # so that the inputs can access the main window and bind to it upon creation.
 
 if __name__ == '__main__':
-    Application.run()
+    try:
+        Application.run()
+    except Exception as e:
+        showError(e, "fatal error")
