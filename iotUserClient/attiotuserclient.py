@@ -29,6 +29,11 @@ _brokerUser = None
 _brokerPwd = None
 _isLoggedIn = False                                     # keeps track if user is logged in or not, so we can show the correct errors.
 
+class AssetNotFoundException(Exception):
+    def __init__(self, arg):
+        # Set some exception infomation
+        self.msg = arg
+
 class SubscriberData:
     """
     callback: function to call when data arrived.
@@ -294,16 +299,16 @@ def _processError(str):
     obj = json.loads(str)
     if obj:
         if 'error_description' in obj:
-            raise Exception(obj['error_description'])
+            raise AssetNotFoundException(obj['error_description'])
         elif 'message' in obj:
-            raise Exception(obj['message'])
-    raise Exception(str)
+            raise AssetNotFoundException(obj['message'])
+    raise AssetNotFoundException(str)
 
 def refreshToken():
     """no need for error handling, is called within doHTTPRequest, which does the error handling"""
     global _access_token, _refresh_token
     url = "/login"
-    body = "grant_type=refresh_token&refresh_token=" + _refresh_token + "&client_id=dashboard"
+    body = "grant_type=refresh_token&refresh_token=" + _refresh_token + "&client_id=maker"
     print("HTTP POST: " + url)
     print("HTTP BODY: " + body)
     _httpClient.request("POST", url, body, {"Content-type": "application/json"})

@@ -5,6 +5,10 @@ __maintainer__ = "Jan Bogaerts"
 __email__ = "jb@allthingstalk.com"
 __status__ = "Prototype"  # "Development", or "Production"
 
+# todo: monitor 'event' topics so that we can see when an asset has been added/removed so the UI can be updated.
+# todo: edit label in popup menu.
+# todo:
+
 import sys, os
 if sys.executable.endswith("pythonw.exe"):
   sys.stdout = open(os.devnull, "w");
